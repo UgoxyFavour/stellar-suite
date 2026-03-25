@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description:
     "Build, deploy, and simulate Stellar Soroban smart contracts directly from VS Code. The easiest alternative to the Stellar CLI.",
   authors: [{ name: "Stellar Kit" }],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Stellar IDE",
+  },
   openGraph: {
     title: "Stellar Kit — Soroban Development in VS Code",
     description:
@@ -20,7 +26,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icon.png", 
+    apple: "/icons/icon-192x192.png",
   },
+};
+
+export const viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
