@@ -44,10 +44,31 @@ interface DeployedContractsStore {
   removeContract: (id: string) => void;
 }
 
+const SAMPLE_DEPLOYMENTS: DeployedContract[] = [
+  {
+    id: "CDLZ6X7YQ...HB7Q",
+    network: "testnet",
+    name: "hello_world",
+    deployedAt: new Date(Date.now() - 3600000 * 2).toISOString(), // 2 hours ago
+  },
+  {
+    id: "CCAAX...Q9RX",
+    network: "futurenet",
+    name: "soroban_auth",
+    deployedAt: new Date(Date.now() - 3600000 * 24).toISOString(), // 1 day ago
+  },
+  {
+    id: "CCBBX...L0PZ",
+    network: "local",
+    name: "native_token_wrap",
+    deployedAt: new Date(Date.now() - 3600000 * 48).toISOString(), // 2 days ago
+  }
+];
+
 export const useDeployedContractsStore = create<DeployedContractsStore>()(
   persist(
     (set) => ({
-      deployedContracts: [],
+      deployedContracts: SAMPLE_DEPLOYMENTS,
 
       addContract: (id, network, name) =>
         set((state) => ({

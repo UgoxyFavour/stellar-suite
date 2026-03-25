@@ -1,4 +1,4 @@
-import { Network, Settings, TestTube, Upload, Menu, X } from "lucide-react";
+import { Network, Settings, TestTube, Upload, Menu, X, Play } from "lucide-react";
 import { useState } from "react";
 
 import { BuildButton } from "@/components/ide/BuildButton";
@@ -39,25 +39,24 @@ export function Toolbar({
           </span>
           <BuildButton
             onClick={onCompile}
-            disabled={isCompiling}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
-            
-            <Play className="h-3.5 w-3.5" />
-            {isCompiling ? "Building..." : "Build"}
-          </button>
-          <button
+            isBuilding={isCompiling}
+            state={isCompiling ? "building" : buildState}
+          />
+          <Button
             onClick={onDeploy}
-            className="gap-1.5 text-xs"
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs h-8"
           >
             <Upload className="h-3.5 w-3.5" />
             Deploy
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant="ghost"
             size="sm"
             onClick={onTest}
-            className="gap-1.5 text-xs"
+            className="gap-1.5 text-xs h-8"
           >
             <TestTube className="h-3.5 w-3.5" />
             Test
@@ -130,20 +129,27 @@ export function Toolbar({
       </div>
 
       {/* Mobile dropdown */}
-      {mobileMenuOpen &&
-      <div className="md:hidden flex gap-1 px-2 pb-2 border-b border-border">
-          <button
-          onClick={() => {onCompile();setMobileMenuOpen(false);}}
-          disabled={isCompiling}
-          className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-[11px] font-medium rounded bg-primary text-primary-foreground disabled:opacity-50">
-          
+      {mobileMenuOpen && (
+        <div className="md:hidden flex gap-2 px-2 pb-2 border-b border-border">
+          <Button
+            onClick={() => {
+              onCompile();
+              setMobileMenuOpen(false);
+            }}
+            disabled={isCompiling}
+            className="flex-1 gap-1 text-[11px] h-9"
+          >
             <Play className="h-3 w-3" />
             {isCompiling ? "..." : "Build"}
-          </button>
-          <button
-          onClick={() => {onDeploy();setMobileMenuOpen(false);}}
-          className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-[11px] font-medium rounded bg-secondary text-secondary-foreground">
-          
+          </Button>
+          <Button
+            onClick={() => {
+              onDeploy();
+              setMobileMenuOpen(false);
+            }}
+            variant="outline"
+            className="flex-1 gap-1 text-[11px] h-9"
+          >
             <Upload className="h-3 w-3" />
             Deploy
           </Button>
@@ -153,14 +159,14 @@ export function Toolbar({
               onTest();
               setMobileMenuOpen(false);
             }}
-            variant="secondary"
-            className="h-9 flex-1 gap-1 px-2 text-[11px]"
+            variant="outline"
+            className="flex-1 gap-1 text-[11px] h-9"
           >
             <TestTube className="h-3 w-3" />
             Test
           </Button>
         </div>
-      }
-    </div>);
-
+      )}
+    </div>
+  );
 }

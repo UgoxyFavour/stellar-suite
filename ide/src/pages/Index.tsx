@@ -1,15 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { DragEvent, useState, useCallback, useEffect, useRef } from "react";
 import { FileExplorer } from "@/components/ide/FileExplorer";
 import { EditorTabs, TabInfo } from "@/components/ide/EditorTabs";
-import { CodeEditor } from "@/components/ide/CodeEditor";
-import { Terminal, LogEntry } from "@/components/ide/Terminal";
+import CodeEditor from "@/components/ide/CodeEditor";
+import { Terminal } from "@/components/ide/Terminal";
 import { Toolbar } from "@/components/ide/Toolbar";
 import { ContractPanel } from "@/components/ide/ContractPanel";
 import { IdentitiesView } from "@/components/ide/IdentitiesView";
 import { StatusBar } from "@/components/ide/StatusBar";
 import { useFileStore } from "@/store/useFileStore";
 import { useIdentityStore } from "@/store/useIdentityStore";
-import { sampleContracts, FileNode } from "@/lib/sample-contracts";
+import { FileNode } from "@/lib/sample-contracts";
 import { NETWORK_CONFIG, type NetworkKey } from "@/lib/networkConfig";
 import { DROP_LIMIT_BYTES, mapDroppedEntriesToTree, mergeFileNodes, readDropPayload } from "@/lib/file-drop";
 import {
@@ -34,9 +34,8 @@ const findNode = (nodes: FileNode[], pathParts: string[]): FileNode | null => {
 };
 
 const Index = () => {
-   // Local state for UI components that don't need persistence yet or are UI-only
   const [terminalExpanded, setTerminalExpanded] = useState(true);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [terminalOutput, setTerminalOutput] = useState("");
   const [isCompiling, setIsCompiling] = useState(false);
   const [contractId, setContractId] = useState<string | null>(null);
   const [showExplorer, setShowExplorer] = useState(false);
@@ -48,7 +47,6 @@ const Index = () => {
   const [leftSidebarTab, setLeftSidebarTab] = useState<"explorer" | "deployments" | "identities">("explorer");
   const dragDepthRef = useRef(0);
 
-  // Store hooks
   const {
     files,
     setFiles,
@@ -72,12 +70,10 @@ const Index = () => {
   const { loadIdentities, activeIdentity, activeContext } = useIdentityStore();
   const { addContract } = useDeployedContractsStore();
 
-  // Lifecycle
   useEffect(() => {
     loadIdentities();
   }, [loadIdentities]);
 
-  // Desktop defaults — show panels on wide screens
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
     if (mq.matches) {
@@ -97,10 +93,8 @@ const Index = () => {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const getTimestamp = () => new Date().toLocaleTimeString("en-US", { hour12: false });
-
-  const addLog = useCallback((type: LogEntry["type"], message: string) => {
-    setLogs((prev) => [...prev, { type, message, timestamp: getTimestamp() }]);
+  const appendTerminalOutput = useCallback((chunk: string) => {
+    setTerminalOutput((prev) => prev + chunk);
   }, []);
 
   const handleFileSelect = useCallback(
@@ -112,25 +106,28 @@ const Index = () => {
     [addTab]
   );
 
+  const handleTabClose = useCallback((path: string[]) => {
+    closeTab(path);
+  }, [closeTab]);
+
   const handleContentChange = useCallback((newContent: string) => {
     const nextFiles = cloneFiles(files);
     const file = findNode(nextFiles, activeTabPath);
     if (file) {
-        file.content = newContent;
-        setFiles(nextFiles);
-        // Mark as unsaved in store or local state
-        // (Assuming store handles unsaved state via updateFileContent or similar if needed)
+      file.content = newContent;
+      setFiles(nextFiles);
+      // Unsaved tracking is handled within the store via setUnsavedFiles usually, 
+      // but if not, we can manually update it here if necessary.
+      // Based on useFileStore, it uses unsavedFiles Set.
     }
   }, [activeTabPath, files, setFiles]);
 
   const handleSave = useCallback(() => {
-    // In current store architecture, markSaved handles the unsavedFiles set
     useFileStore.getState().markSaved(activeTabPath);
     setSaveStatus("Saved");
     setTimeout(() => setSaveStatus(""), 2000);
   }, [activeTabPath]);
 
-  // Global Ctrl/Cmd+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -145,39 +142,32 @@ const Index = () => {
   const handleCompile = useCallback(() => {
     setIsCompiling(true);
     setTerminalExpanded(true);
-    addLog("info", "Compiling contract...");
-    addLog("info", `Target network: ${network}`);
-    setTimeout(() => addLog("info", "Resolving dependencies..."), 400);
-    setTimeout(() => addLog("info", "Building release target..."), 900);
+    appendTerminalOutput("> Compiling contract...\r\n");
+    appendTerminalOutput(`Target network: ${network}\r\n`);
     setTimeout(() => {
-      addLog("success", "✓ Compilation successful! WASM binary: 1.2 KB");
-      addLog("info", "Contract hash: 7a8b9c...d4e5f6");
+      appendTerminalOutput("✓ Compilation successful! WASM binary: 1.2 KB\r\n");
       setIsCompiling(false);
     }, 1800);
-  }, [network, addLog]);
+  }, [network, appendTerminalOutput]);
 
   const handleDeploy = useCallback(() => {
     setTerminalExpanded(true);
-    addLog("info", `Deploying to ${network}...`);
+    appendTerminalOutput(`Deploying to ${network}...\r\n`);
     setTimeout(() => {
       const fullId = `CD${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`.substring(0, 56).toUpperCase();
-      
       setContractId(fullId);
-      addLog("success", `✓ Contract deployed! ID: ${fullId}`);
-      
-      // Persist to store
+      appendTerminalOutput(`✓ Contract deployed! ID: ${fullId}\r\n`);
       addContract(fullId, network as NetworkKey, "hello_world");
     }, 2000);
-  }, [network, addLog, addContract]);
+  }, [network, appendTerminalOutput, addContract]);
 
   const handleTest = useCallback(() => {
     setTerminalExpanded(true);
-    addLog("info", "Running tests...");
+    appendTerminalOutput("Running tests...\r\n");
     setTimeout(() => {
-      addLog("success", "✓ test_hello ... ok");
-      addLog("info", "test result: ok. 1 passed; 0 failed;");
+      appendTerminalOutput("✓ test_hello ... ok\r\ntest result: ok. 1 passed; 0 failed;\r\n");
     }, 1200);
-  }, [addLog]);
+  }, [appendTerminalOutput]);
 
   const handleInvoke = useCallback(
     (fn: string, args: string) => {
@@ -185,10 +175,12 @@ const Index = () => {
       const signer = activeContext?.type === "web-wallet" 
         ? "browser-wallet" 
         : activeIdentity?.nickname ?? "anonymous";
-      addLog("info", `Invoking ${fn}(${args}) as ${signer}...`);
-      setTimeout(() => addLog("success", `✓ Result: ["Hello", "Dev"]`), 800);
+      appendTerminalOutput(`Invoking ${fn}(${args}) as ${signer}...\r\n`);
+      setTimeout(() => {
+        appendTerminalOutput('Result: ["Hello", "Dev"]\r\n');
+      }, 800);
     },
-    [addLog, activeIdentity, activeContext]
+    [appendTerminalOutput, activeIdentity, activeContext]
   );
 
   const handleExplorerDragEnter = useCallback((event: DragEvent<HTMLDivElement>) => {
@@ -222,20 +214,17 @@ const Index = () => {
 
     try {
       const dropped = await readDropPayload(event.dataTransfer);
-      const { nodes, uploadedFiles, totalBytes } = await mapDroppedEntriesToTree(dropped);
+      const { nodes, uploadedFiles } = await mapDroppedEntriesToTree(dropped);
 
-      if (uploadedFiles === 0) {
-        addLog("error", `Upload skipped. No eligible files found.`);
-        return;
-      }
+      if (uploadedFiles === 0) return;
 
       setFiles(mergeFileNodes(files, nodes));
-      addLog("success", `Uploaded ${uploadedFiles} file${uploadedFiles === 1 ? "" : "s"} (${(totalBytes / 1024).toFixed(1)} KB).`);
+      appendTerminalOutput(`Uploaded ${uploadedFiles} file(s).\r\n`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown error";
-      addLog("error", `Upload failed: ${message}`);
+      appendTerminalOutput(`Upload failed: ${message}\r\n`);
     }
-  }, [addLog, files, setFiles]);
+  }, [files, setFiles, appendTerminalOutput]);
 
   const getActiveContent = (): { content: string; language: string } => {
     const file = findNode(files, activeTabPath);
@@ -266,7 +255,6 @@ const Index = () => {
       />
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Toggle Bar */}
         <div className="hidden md:flex flex-col bg-sidebar border-r border-border shrink-0 z-10 w-12 items-center py-4 gap-4">
           <button
             onClick={() => {
@@ -336,7 +324,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Mobile overlay panels */}
         {mobilePanel === "explorer" && (
           <div className="md:hidden absolute inset-0 z-30 flex">
             <div className="w-64 bg-sidebar border-r border-border h-full">
@@ -366,7 +353,13 @@ const Index = () => {
         )}
         {mobilePanel === "identities" && (
           <div className="md:hidden absolute inset-0 z-30 flex">
-            <div className="w-64 bg-sidebar border-r border-border h-full">
+            <div className="w-64 bg-sidebar border-r border-border h-full flex flex-col">
+               <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Users</span>
+                <button title="Close" onClick={() => setMobilePanel("none")} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
                <IdentitiesView network={network} />
             </div>
             <div className="flex-1 bg-background/60" onClick={() => setMobilePanel("none")} />
@@ -374,14 +367,20 @@ const Index = () => {
         )}
         {mobilePanel === "deployments" && (
           <div className="md:hidden absolute inset-0 z-30 flex">
-            <div className="w-64 bg-sidebar border-r border-border h-full">
+            <div className="w-64 bg-sidebar border-r border-border h-full flex flex-col">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Recent</span>
+                <button title="Close" onClick={() => setMobilePanel("none")} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
                <DeploymentsView 
                   activeContractId={contractId}
                   onSelectContract={(id, net) => {
                     setContractId(id);
                     setNetwork(net as NetworkKey);
                     setMobilePanel("none");
-                    addLog("info", `Targeting contract ${id.substring(0,8)}... on ${net}`);
+                    appendTerminalOutput(`Targeting contract ${id.substring(0,8)}... on ${net}\r\n`);
                   }}
                 />
             </div>
@@ -403,10 +402,8 @@ const Index = () => {
           </div>
         )}
 
-        {/* Resizable Layout for Desktop Content */}
         <div className="flex-1 flex overflow-hidden">
           <ResizablePanelGroup direction="horizontal" autoSaveId="ide-main-layout">
-            
             {showExplorer && (
               <>
                 <ResizablePanel id="explorer" order={1} defaultSize={20} minSize={10} maxSize={40} className="hidden md:block">
@@ -416,10 +413,10 @@ const Index = () => {
                         files={files}
                         onFileSelect={handleFileSelect}
                         activeFilePath={activeTabPath}
-                        onCreateFile={(path, name) => createFile(path, name)}
-                        onCreateFolder={(path, name) => createFolder(path, name)}
-                        onDeleteNode={(path) => deleteNode(path)}
-                        onRenameNode={(path, name) => renameNode(path, name)}
+                        onCreateFile={createFile}
+                        onCreateFolder={createFolder}
+                        onDeleteNode={deleteNode}
+                        onRenameNode={renameNode}
                         isDragActive={isExplorerDragActive}
                         onDragEnter={handleExplorerDragEnter}
                         onDragOver={handleExplorerDragOver}
@@ -436,7 +433,7 @@ const Index = () => {
                         onSelectContract={(id, net) => {
                           setContractId(id);
                           setNetwork(net as NetworkKey);
-                          addLog("info", `Targeting contract ${id.substring(0,8)}... on ${net}`);
+                          appendTerminalOutput(`Targeting contract ${id.substring(0,8)}... on ${net}\r\n`);
                         }}
                       />
                     )}
@@ -448,7 +445,6 @@ const Index = () => {
 
             <ResizablePanel id="main-content" order={2} minSize={30} className="flex flex-col min-w-0">
               <ResizablePanelGroup direction="vertical" autoSaveId="ide-editor-terminal">
-                
                 <ResizablePanel id="editor" order={1} defaultSize={75} minSize={30} className="flex flex-col min-w-0">
                   <EditorTabs
                     tabs={tabsWithStatus}
@@ -460,7 +456,7 @@ const Index = () => {
                     <CodeEditor
                       content={content}
                       language={language}
-                      onChange={(newContent) => handleContentChange(newContent)}
+                      onChange={handleContentChange}
                       onCursorChange={(line, col) => setCursorPos({ line, col })}
                       onSave={handleSave}
                     />
@@ -472,30 +468,28 @@ const Index = () => {
                     <ResizableHandle withHandle />
                     <ResizablePanel id="terminal" order={2} defaultSize={25} minSize={10} className="flex flex-col min-w-0">
                       <Terminal
-                        logs={logs}
+                        output={terminalOutput}
                         isExpanded={terminalExpanded}
                         onToggle={() => setTerminalExpanded(!terminalExpanded)}
-                        onClear={() => setLogs([])}
+                        onClear={() => setTerminalOutput("")}
                       />
                     </ResizablePanel>
                   </>
                 ) : (
                   <div className="shrink-0 flex flex-col min-w-0">
                     <Terminal
-                      logs={logs}
+                      output={terminalOutput}
                       isExpanded={terminalExpanded}
                       onToggle={() => setTerminalExpanded(!terminalExpanded)}
-                      onClear={() => setLogs([])}
+                      onClear={() => setTerminalOutput("")}
                     />
                   </div>
                 )}
-
               </ResizablePanelGroup>
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
 
-        {/* Desktop contract panel */}
         <div className="hidden md:flex shrink-0 z-10">
           {showPanel && (
             <div className="w-64 border-l border-border bg-card">
@@ -522,13 +516,12 @@ const Index = () => {
           network={network as NetworkKey}
           horizonUrl={horizonUrl}
           customRpcUrl={customRpcUrl}
-          onNetworkChange={(n) => setNetwork(n)}
-          onCustomRpcUrlChange={(url) => setCustomRpcUrl(url)}
+          onNetworkChange={setNetwork}
+          onCustomRpcUrlChange={setCustomRpcUrl}
           unsavedCount={unsavedFiles.size}
         />
       </div>
 
-      {/* Mobile bottom tab bar */}
       <div className="md:hidden flex flex-col border-t border-border bg-sidebar">
         <div className="flex items-center justify-between px-3 py-1 border-b border-border/50 bg-muted/30">
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
