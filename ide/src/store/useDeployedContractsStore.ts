@@ -13,7 +13,7 @@
  */
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { NetworkKey } from "@/lib/networkConfig";
 import { idbStorage } from "@/utils/idbStorage";
 
@@ -64,7 +64,7 @@ export const useDeployedContractsStore = create<DeployedContractsStore>()(
     }),
     {
       name: "stellar-suite:deployed-contracts",
-      storage: idbStorage,
+      storage: createJSONStorage(() => idbStorage),
     }
   )
 );
