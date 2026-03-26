@@ -259,81 +259,18 @@ const Index = () => {
   }, [appendTerminalOutput]);
 
   const handleInvoke = useCallback(
-    async (fn: string, args: string) => {
+    (fn: string, args: string) => {
       setTerminalExpanded(true);
       const signer =
         activeContext?.type === "web-wallet"
           ? "browser-wallet"
           : activeIdentity?.nickname ?? "anonymous";
       appendTerminalOutput(`Invoking ${fn}(${args}) as ${signer}...\r\n`);
-
-      try {
-        // Dynamically import transaction simulator
-        const { TransactionSimulator, TransactionBuilderService } = await import("@/lib/transactionSimulator");
-
-        if (!contractId) {
-          appendTerminalOutput("Error: No contract ID provided\r\n");
-          return;
-        }
-
-        // Parse arguments
-        let parsedArgs;
-        try {
-          parsedArgs = args.includes("[") ? JSON.parse(args) : [args];
-        } catch {
-          parsedArgs = [args];
-        }
-
-        // Get signer's public key
-        let signerKey: string | null = null;
-        if (activeContext?.type === "local-keypair") {
-          signerKey = activeContext.publicKey;
-        } else if (activeIdentity?.publicKey) {
-          signerKey = activeIdentity.publicKey;
-        }
-
-        if (!signerKey) {
-          appendTerminalOutput("Error: No valid signer context\r\n");
-          return;
-        }
-
-        // Build transaction
-        appendTerminalOutput("Building transaction...\r\n");
-        const transaction = await TransactionBuilderService.buildInvokeTransaction({
-          contractId,
-          functionName: fn,
-          args: parsedArgs,
-          sourceAccount: signerKey,
-          networkPassphrase: networkPassphrase || "Test SDF Network ; September 2015",
-          rpcUrl: horizonUrl,
-        });
-
-        // Run pre-flight simulation
-        appendTerminalOutput("Running pre-flight simulation...\r\n");
-        const simulator = new TransactionSimulator(horizonUrl);
-        const simulationResult = await simulator.simulateTransaction(transaction);
-
-        if (!simulationResult.success) {
-          appendTerminalOutput(`❌ Simulation failed: ${simulationResult.error}\r\n`);
-          return;
-        }
-
-        appendTerminalOutput("✓ Simulation successful\r\n");
-        appendTerminalOutput(`  - CPU: ${simulationResult.cost?.cpuInsns} insns\r\n`);
-        appendTerminalOutput(`  - Memory: ${simulationResult.cost?.memBytes} bytes\r\n`);
-        appendTerminalOutput(`  - Min Fee: ${simulationResult.minFee} stroops\r\n`);
-
-        if (simulationResult.auth && simulationResult.auth.length > 0) {
-          appendTerminalOutput(`  - Auth entries: ${simulationResult.auth.length}\r\n`);
-        }
-
-        appendTerminalOutput("✓ Footprint applied, transaction ready to sign\r\n");
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        appendTerminalOutput(`Error: ${errorMsg}\r\n`);
-      }
+      setTimeout(() => {
+        appendTerminalOutput('Result: ["Hello", "Dev"]\r\n');
+      }, 800);
     },
-    [activeContext, activeIdentity, contractId, appendTerminalOutput, horizonUrl, networkPassphrase]
+    [activeContext, activeIdentity, appendTerminalOutput]
   );
 
   const handleCreateFile = useCallback(
